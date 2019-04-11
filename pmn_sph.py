@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-#PMN code for fitting absorption line with SPHOUT model
-#v5: with EFACT
-#v6: updating continuum values
-#v7: Adding in all three redshifts
+#PyMultinest code for fitting absorption line with SPHOUT model
+#Allows for fitting of shell thickness, maximum outflow velocity, velocity dispersion, optical depth,
+# and a normalization constant for emission
 
 import os
 import numpy as np
@@ -11,40 +10,36 @@ from matplotlib import pyplot as plt
 import json
 import sys
 import scipy.stats, scipy
-sys.path.insert(0, '/Users/garethjones/PyMultiNest')
 import pymultinest
 import scipy
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-from sphout_vTEN import makesphout
-#from sphout_vELEVEN import makesphout #Possible continuum normilzation issue
+from sphout import makesphout
 from uncertainties import unumpy as unp
 
-#
-whichone='B723N'       #B701N / B701SE / B723N / B723SE
-z123='3'
-fitwhich=[0,1,1,1,0]       #log(Shell thickness), vmax, FWHM, tau0, EFACT
-dr=10.                #Shell thickness
-vmax=230.              #Outward speed of shell
-FWHMkms=610.           #FWHM of Gaussian to convolve with spectrum
-tau0=0.00338
-EFACT=0.0
+#SOURCE PARAMETERS
+filebase='B723N'       #Base file name      
+zred=5.656             #Source redshift
+TRANSITION='H2O3'      #Observed transition (see frtove below)
+RMS=0.0003             #Observed RMS noise level per channel
+cont=11.0E-3           #Observed continuum flux density
+xlimits=[-1000,1950]   #Velocity limits for plotting
 
-#
-irrad=1.0          #[1,0.5,0.1]
-#n=2               #[2,3]
-gamma=-1         #0 for cont v, -2 for const density ===================
-aper=1           #[1,0.5]
-conangle=0.       #pi/[2,3,6]
+#FITTING PARAMETERS
+fitwhich=[0,1,1,1,0]   #Flags for fitting: log(Shell thickness), vmax, FWHM, tau0, EFACT
+dr=10.                 #Estimate for shell thickness
+vmax=230.              #Estimate for outward speed of shell
+FWHMkms=610.           #Estimate for FWHM of Gaussian to convolve with spectrum
+tau0=0.00338           #Estimate for optical depth
+EFACT=0.0              #Estimate for emission profile normalization
 
-if z123=='1':
-    zred=5.656
-elif z123=='2':
-    zred=5.652
-elif z123=='3':
-    zred=5.654
-else: print "BAD REDSHIFT"
+#ASSUMPTIONS
+irrad=1.0          #Ratio of inner shell radius to IR source radius
+gamma=-1           #Velocity & density power index: 0 for constant v, -2 for constant density
+aper=1             #Fractional aperture of simulated observation
+conangle=0.        #Opening angle of conical outflow (0 for sphere)
 
+#Convert a frequency to an optical velocity
 def frtove(freq,trans): 
 	if trans=='HD': restfr=2674.986094/(1+zred)
 	if trans=='CO21': restfr=230.538/(1+zred)
@@ -53,20 +48,16 @@ def frtove(freq,trans):
 	temp=(3*10**5)*((restfr/freq)-1)
 	return temp
 
+#Uniform prior for PMN
 def uniformprior(cube,howmany,a,b):
     return cube[howmany]*(b-a)+a
 
+#log-uniform prior for PMN
 def loguniformprior(cube,howmany,a,b):
     return 10**(cube[howmany]*(b-a)+a)
 
-if whichone=='B723N':
-    N1=np.genfromtxt('/Volumes/Johto/2016/b7_old/calibrated_orig/B7_23_N_z.txt',skip_header=9)
-    TRANSITION='H2O3'
-    RMS=0.0003*np.sqrt(57/22)
-    cont=11.0E-3
-    xlimits=[-1000,1950]
-else: print "BAD SOURCE"
-
+#Import data
+N1=np.genfromtxt(filebase+'.txt',skip_header=9)
 N1x=N1[:,0]           #Frequency [GHz]
 N1y=1+N1[:,1]/cont 	  #1+Line/Cont
 RMSy=np.zeros(len(N1x)) 
@@ -74,7 +65,6 @@ RMSy=np.zeros(len(N1x))
 #Look at intial guess
 N1v=np.zeros(len(N1x))
 for i in range(len(N1v)): 
-    #N1v[i]=N1x[i]
     N1v[i]=frtove(N1x[i],TRANSITION)
     RMSy[i]=RMS/cont
 ANS_SPEC,ESP,ASP=makesphout(dr,irrad,vmax,FWHMkms,gamma,aper,conangle,N1v,tau0,EFACT,zred)
@@ -87,11 +77,8 @@ plt.step(N1v,N1y,color='r')
 plt.fill_between(N1v,1+RMSy,1-1*RMSy,alpha=0.2,color='r')
 plt.xlabel(r'v [km s$^{-1}$]')
 plt.xlim(xlimits[0],xlimits[1])
-#plt.axvline(vmax)
-#plt.axvline(-1*vmax)
 plt.ylabel('Normalized Flux Density')
 plt.show()
-
 
 #--------------------------------
 def prior(cube, ndim, nparams):
@@ -116,7 +103,6 @@ def prior(cube, ndim, nparams):
 def loglike(cube,ndim,nparams):
     totdif=0.0
     howmany=0
-    
     if fitwhich[0]:
         global dr
         dr=cube[howmany]
@@ -137,7 +123,6 @@ def loglike(cube,ndim,nparams):
         global EFACT
         EFACT=cube[howmany]
         howmany=howmany+1
-
     modelspec=makesphout(dr,irrad,vmax,FWHMkms,gamma,aper,conangle,N1v,tau0,EFACT,zred)[0]
     for i in range(len(N1v)):
         totdif+=((N1y[i]-modelspec[i])/RMSy[i])**2+np.log10(2*np.pi*RMSy[i])**2
@@ -209,18 +194,6 @@ if fitwhich[3]:
     tau0=unp.uarray(tau0,dtau0)
 if fitwhich[4]:
     EFACT=unp.uarray(EFACT,dEFACT)
-
-
-"""
-#Write components
-f=open("STUFF.txt",'w')
-f.close()
-f=open("STUFF.txt",'w')
-for i in range(len(x2)):
-    f.write(str(x2[i])+" "+str(np.log10(freefree(x[i])*sfrterm))+" "+str(np.log10(synch(x[i],lfnth,alpha)*sfrterm))+" "+str(np.log10(dust(x[i],td,beta)*sfrterm))+"\n")
-f.close()
-#plt.title(whichone+" "+str(fitwhich))
-"""
     
 #======================
 
@@ -237,16 +210,9 @@ print()
 print("-" * 30, 'ANALYSIS', "-" * 30)
 print("Global Evidence:\n\t%.15e +- %.15e" % ( s['nested sampling global log-evidence'], s['nested sampling global log-evidence error'] ))
 
-
-
-
 print '-----'
 print 'dr = '+str(dr)
 print 'vmax = '+str(vmax)+" km/s"
 print "FWHMkms = "+str(FWHMkms)
 print "tau0 = "+str(tau0)
 print "EFACT = "+str(EFACT)
-
-
-
-
