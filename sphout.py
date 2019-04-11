@@ -1,6 +1,5 @@
 #Model for spherical outflow
 #Allows for aperture, opening angle, vacuous shell
-#vTEN: includes EFACT
 
 import numpy as np
 import matplotlib
