@@ -74,10 +74,10 @@ def makesphout(dr,irrad,vmax,FWHMkms,gamma,aper,conangle,vellist,tau0,EFACT,zred
 		r=bigrad[i]
 
 		#Check cone
-		if r>(innerrad+dr)*np.cos(conangle): print 'CON_BREAK'; break
+		if r>(innerrad+dr)*np.cos(conangle): break
 
 		#Check aperture
-		if r>aper: print 'APE_BREAK'; break
+		if r>aper: break
 
 		velbincounts=np.zeros(numv)
 
@@ -86,7 +86,7 @@ def makesphout(dr,irrad,vmax,FWHMkms,gamma,aper,conangle,vellist,tau0,EFACT,zred
 			xshellmin=max(np.sqrt(innerrad**2-r**2),r*np.tan(conangle))
 			xshellmax=np.sqrt((innerrad+dr)**2-r**2)	
 			lilrad=sliceit(xshellmin,xshellmax)
-			nphot[i]=pi*2*r/dx
+			nphot[i]=2*r*dx/(irrad**2)
 			contcounts+=nphot[i]
 			currentfrac=np.ones(len(velbincounts))
 			for j in range(len(lilrad)):
