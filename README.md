@@ -2,7 +2,11 @@
 A Multinest-based outflow model fitter for observed spectra
 
 Requirements:
-  -numpy/matplotlib/scipy/astropy/uncertainties
+  -numpy
+  -matplotlib
+  -scipy
+  -astropy
+  -uncertainties
   -Multinest (https://github.com/farhanferoz/MultiNest)
   -PyMultinest  (https://johannesbuchner.github.io/PyMultiNest/)
   
