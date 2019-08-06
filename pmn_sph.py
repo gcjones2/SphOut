@@ -35,7 +35,7 @@ EFACT=0.0              #Estimate for emission profile normalization
 
 #ASSUMPTIONS
 irrad=1.0          #Ratio of inner shell radius to IR source radius
-gamma=-1           #Velocity & density power index: 0 for constant v, -2 for constant density
+gamma=-1           #Velocity & density power index: density~r^(gamma+2), velocity~r^gamma
 aper=1             #Fractional aperture of simulated observation
 conangle=0.        #Opening angle of conical outflow (0 for sphere)
 
@@ -87,13 +87,13 @@ def prior(cube, ndim, nparams):
         cube[howmany]=loguniformprior(cube,howmany,-2,1)
         howmany=howmany+1
     if fitwhich[1]:
-        cube[howmany]=uniformprior(cube,howmany,50,1000)
+        cube[howmany]=loguniformprior(cube,howmany,0,3.5)
         howmany=howmany+1
     if fitwhich[2]:
-        cube[howmany]=uniformprior(cube,howmany,50,1000)
+        cube[howmany]=loguniformprior(cube,howmany,0,3.5)
         howmany=howmany+1
     if fitwhich[3]:
-        cube[howmany]=loguniformprior(cube,howmany,-7,1)
+        cube[howmany]=loguniformprior(cube,howmany,-8,0)
         howmany=howmany+1
     if fitwhich[4]:
         cube[howmany]=loguniformprior(cube,howmany,-8,0)
